@@ -404,7 +404,34 @@
     // Nombre maximum de défis par session, puis message QR code
     const MAX_DEFIS = 5;
     const MESSAGE_FIN = "Flash le QR code pour continuer";
-    let tires = 0;
+
+    // ---- Compteur mémorisé sur le téléphone ----
+    // Le nombre de défis joués est gardé sur l'appareil : rafraîchir la page ne le remet pas à zéro.
+    // Seul le lien du QR code, qui se termine par #qr, redonne 5 défis. Le #qr est ensuite effacé
+    // de l'adresse, donc un rafraîchissement juste après ne débloque rien.
+    const CLE_COMPTE = 'defis-junior-compteur-v1';
+    const MARQUE_QR = 'qr';
+
+    function lireCompte() {
+      try {
+        const n = parseInt(localStorage.getItem(CLE_COMPTE), 10);
+        return Number.isInteger(n) && n >= 0 ? n : 0;
+      } catch (e) { return 0; }
+    }
+    function ecrireCompte(n) {
+      try { localStorage.setItem(CLE_COMPTE, String(n)); } catch (e) {}
+    }
+
+    let tires = lireCompte();
+
+    (function verifierQR() {
+      if (location.hash.slice(1).toLowerCase() !== MARQUE_QR) return;
+      // Un rafraîchissement ou un retour arrière ne compte pas comme un nouveau scan
+      let typeNav = 'navigate';
+      try { typeNav = performance.getEntriesByType('navigation')[0].type; } catch (e) {}
+      if (typeNav === 'navigate') { tires = 0; ecrireCompte(0); }
+      try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+    })();
 
     const card = document.getElementById('card');
     const btn = document.getElementById('actionBtn');
@@ -463,6 +490,7 @@
         // Le vrai défi est pioché dans la pioche mélangée
         card.textContent = piocherDefi();
         tires++;
+        ecrireCompte(tires);
         btn.textContent = "Recommencer";
         btn.classList.remove('running');
         card.classList.add('stopped');
@@ -471,10 +499,7 @@
       } else {
         // Limite atteinte : le message remplace le défi et le bouton se bloque
         if (tires >= MAX_DEFIS) {
-          card.textContent = MESSAGE_FIN;
-          card.classList.remove('stopped', 'placeholder');
-          card.classList.add('limit');
-          btn.disabled = true;
+          afficherFin();
           return;
         }
 
@@ -485,6 +510,14 @@
         intervalId = setInterval(defilement, 60);
       }
     }
+
+    function afficherFin() {
+      card.textContent = MESSAGE_FIN;
+      card.classList.remove('stopped', 'placeholder');
+      card.classList.add('limit');
+      btn.disabled = true;
+    }
+    if (tires >= MAX_DEFIS) afficherFin();
   </script>
 
 
